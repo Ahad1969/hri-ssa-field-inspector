@@ -56,7 +56,18 @@ function exportCSV(){const rows=[['Site ID','Latitude','Longitude','Status','Vis
 // v1.4 evidence export: offline ZIP (stored entries), no third-party libraries or network calls.
 const safePart=v=>String(v??'Unlinked').replace(/[^A-Za-z0-9_.-]+/g,'_').replace(/^\.+/,'_').slice(0,110)||'Unlinked';
 function mediaExt(data,defaultExt){const type=(String(data).match(/^data:([^;,]+)/)||[])[1]||'';return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','audio/webm':'webm','audio/ogg':'ogg','audio/mp4':'m4a','audio/mpeg':'mp3','audio/wav':'wav'})[type]||defaultExt}
-function decodeDataURL(data){const hit=String(data||'').match(/^data:([^;,]+)(;base64)?,([\s\S]*)$/);if(!hit||!hit[2])throw Error('Missing or unsupported embedded media');const binary=atob(hit[3]);const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return {bytes,mime:hit[1]}}
+function decodeDataURL(data) {
+  const hit = String(data || '').match(/^data:([^,]+),([\s\S]*)$/);
+  if (!hit || !/(?:^|;)base64(?:;|$)/i.test(hit[1])) {
+    throw Error('Missing or unsupported embedded media');
+  }
+  const binary = atob(hit[2].replace(/\s/g, ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return { bytes, mime: hit[1].split(';')[0] };
+}
 function evidenceEntries(sites){const files=[],rows=[['Site ID','Issue ID','Issue title','Evidence ID','Type','Filename in ZIP','Caption or note title','Transcript','Recorded / added (UTC)','Original name']];for(const s of sites){for(const kind of ['photos','voiceNotes'])for(const item of (s[kind]||[])){const issue=(s.issues||[]).find(i=>i.id===item.issue);const issueId=issue?.code||'Unlinked';const extension=mediaExt(item.data,kind==='photos'?'jpg':'webm');const filename=safePart(item.id)+'.'+extension;const path=[safePart(s.id),safePart(issueId),filename].join('/');files.push({path,data:item.data});rows.push([s.id,issueId,issue?.title||'',item.id,kind==='photos'?'Photo':'Voice',path,kind==='photos'?item.caption||'':item.title||'',kind==='voiceNotes'?item.transcript||'':'',item.added||'',kind==='photos'?item.originalName||'':''])}}return {files,rows}}
 // ZIP format: STORE method, UTF-8 names, CRC-32; compatible with Windows Explorer and Android archive utilities.
 const zipEncoder=new TextEncoder();let crcTable;
